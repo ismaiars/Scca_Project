@@ -1,0 +1,46 @@
+# Sistema de Creación de Contenido Automatizado (SCCA)
+# Dependencias de Python
+
+# Framework web
+fastapi==0.110.0
+uvicorn[standard]==0.27.0
+
+# Plantillas y archivos estáticos
+jinja2==3.1.2
+python-multipart==0.0.6
+
+# Procesamiento de video
+ffmpeg-python==0.2.0
+
+# IA y procesamiento de texto
+openai-whisper==20231117
+aiohttp==3.9.1
+
+# Utilidades
+pydantic==2.6.0
+python-dotenv==1.0.0
+
+# Logging
+loguru==0.7.2
+
+# Procesamiento JSON
+orjson==3.9.10
+
+# WebSockets
+websockets==12.0
+
+# Validación y tipos
+typing-extensions==4.8.0
+
+# Herramientas de desarrollo (opcional)
+pytest==7.4.3
+pytest-asyncio==0.21.1
+black==23.11.0
+flake8==6.1.0
+
+# Dependencias del sistema (instalar por separado):
+# - FFmpeg: https://ffmpeg.org/download.html
+# - whisper.cpp: https://github.com/ggerganov/whisper.cpp
+# - Modelo Whisper: ggml-medium.bin
+# - Servidor LLM local (LM Studio, Ollama, etc.)
+# - Modelo LLM: Mistral-7B-Instruct-v0.2 (Q4_K_M)

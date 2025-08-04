@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SCCA - Sistema de Creación de Contenido Automatizado</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <h1><i class="fas fa-video"></i> SCCA</h1>
+                <p>Sistema de Creación de Contenido Automatizado</p>
+            </div>
+        </header>
+
+        <!-- Panel de Control -->
+        <section id="control-panel" class="panel">
+            <h2><i class="fas fa-cog"></i> Panel de Control</h2>
+            
+            <form id="process-form" enctype="multipart/form-data">
+                <div class="form-group">
+                    <label for="video-file">
+                        <i class="fas fa-file-video"></i> Archivo de Video
+                    </label>
+                    <div class="file-input-wrapper">
+                        <input type="file" id="video-file" name="video_file" accept="video/*" required>
+                        <div class="file-input-display">
+                            <i class="fas fa-cloud-upload-alt"></i>
+                            <span>Seleccionar video...</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="context">
+                        <i class="fas fa-info-circle"></i> Contexto del Video
+                    </label>
+                    <textarea 
+                        id="context" 
+                        name="context" 
+                        placeholder="Describe el contenido general del video, el tema principal, el tipo de audiencia, etc."
+                        required
+                    ></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label for="topics">
+                        <i class="fas fa-tags"></i> Temas de Interés
+                    </label>
+                    <input 
+                        type="text" 
+                        id="topics" 
+                        name="topics" 
+                        placeholder="Tema1, Tema2, Tema3..."
+                        required
+                    >
+                    <small>Separa los temas con comas</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="profile">
+                        <i class="fas fa-user-cog"></i> Perfil de Salida
+                    </label>
+                    <select id="profile" name="profile" required>
+                        <option value="">Seleccionar perfil...</option>
+                        <option value="Clips para Redes Sociales">Clips para Redes Sociales</option>
+                        <option value="Cápsulas Educativas">Cápsulas Educativas</option>
+                        <option value="Archivo de Referencia">Archivo de Referencia</option>
+                    </select>
+                </div>
+
+                <button type="submit" id="start-btn" class="btn-primary">
+                    <i class="fas fa-play"></i> Iniciar Proceso
+                </button>
+            </form>
+        </section>
+
+        <!-- Área de Progreso -->
+        <section id="progress-area" class="panel hidden">
+            <h2><i class="fas fa-tasks"></i> Progreso del Procesamiento</h2>
+            
+            <div class="progress-container">
+                <div class="progress-step" id="transcription-step">
+                    <div class="step-header">
+                        <i class="fas fa-microphone"></i>
+                        <span>Transcripción</span>
+                        <div class="step-status" id="transcription-status">
+                            <i class="fas fa-clock"></i>
+                        </div>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="transcription-progress"></div>
+                    </div>
+                    <div class="step-message" id="transcription-message">Esperando...</div>
+                </div>
+
+                <div class="progress-step" id="analysis-step">
+                    <div class="step-header">
+                        <i class="fas fa-brain"></i>
+                        <span>Análisis con IA</span>
+                        <div class="step-status" id="analysis-status">
+                            <i class="fas fa-clock"></i>
+                        </div>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="analysis-progress"></div>
+                    </div>
+                    <div class="step-message" id="analysis-message">Esperando...</div>
+                </div>
+
+                <div class="progress-step" id="cutting-step">
+                    <div class="step-header">
+                        <i class="fas fa-cut"></i>
+                        <span>Corte de Clips</span>
+                        <div class="step-status" id="cutting-status">
+                            <i class="fas fa-clock"></i>
+                        </div>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="cutting-progress"></div>
+                    </div>
+                    <div class="step-message" id="cutting-message">Esperando...</div>
+                </div>
+            </div>
+
+            <div class="overall-progress">
+                <div class="overall-progress-bar">
+                    <div class="overall-progress-fill" id="overall-progress"></div>
+                </div>
+                <div class="overall-message" id="overall-message">Iniciando procesamiento...</div>
+            </div>
+        </section>
+
+        <!-- Resultados -->
+        <section id="results-area" class="panel hidden">
+            <h2><i class="fas fa-download"></i> Clips Generados</h2>
+            
+            <div class="results-summary">
+                <div class="summary-item">
+                    <i class="fas fa-video"></i>
+                    <span id="clips-count">0</span>
+                    <small>Clips generados</small>
+                </div>
+                <div class="summary-item">
+                    <i class="fas fa-clock"></i>
+                    <span id="total-duration">0:00</span>
+                    <small>Duración total</small>
+                </div>
+                <div class="summary-item">
+                    <i class="fas fa-hdd"></i>
+                    <span id="total-size">0 MB</span>
+                    <small>Tamaño total</small>
+                </div>
+            </div>
+
+            <div id="clips-list" class="clips-list">
+                <!-- Los clips se cargarán dinámicamente aquí -->
+            </div>
+
+            <div class="results-actions">
+                <button id="new-process-btn" class="btn-secondary">
+                    <i class="fas fa-plus"></i> Nuevo Proceso
+                </button>
+                <button id="download-all-btn" class="btn-primary">
+                    <i class="fas fa-download"></i> Descargar Todos
+                </button>
+            </div>
+        </section>
+
+        <!-- Sistema de Notificaciones -->
+        <div id="notifications" class="notifications"></div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <p>&copy; 2024 SCCA - Sistema de Creación de Contenido Automatizado</p>
+    </footer>
+
+    <script src="/static/js/main.js"></script>
+</body>
+</html>
