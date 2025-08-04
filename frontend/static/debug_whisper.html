@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug Whisper Settings</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        button { padding: 10px 20px; margin: 10px; background: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; }
+        .log { background: #f8f9fa; padding: 10px; margin: 10px 0; border-left: 4px solid #007bff; }
+        .error { border-left-color: #dc3545; }
+        .success { border-left-color: #28a745; }
+    </style>
+</head>
+<body>
+    <h1>Debug Whisper Settings</h1>
+    
+    <button onclick="testWhisperAPI()">Test Whisper API</button>
+    <button onclick="testButtonExists()">Test Button Exists</button>
+    <button onclick="testShowWhisperSettings()">Test Show Whisper Settings</button>
+    
+    <div id="logs"></div>
+    
+    <script>
+        function log(message, type = 'info') {
+            const logsDiv = document.getElementById('logs');
+            const logDiv = document.createElement('div');
+            logDiv.className = `log ${type}`;
+            logDiv.innerHTML = `<strong>${new Date().toLocaleTimeString()}:</strong> ${message}`;
+            logsDiv.appendChild(logDiv);
+            console.log(message);
+        }
+        
+        async function testWhisperAPI() {
+            try {
+                log('Testing Whisper API...');
+                const response = await fetch('/api/whisper/models');
+                log(`API Response Status: ${response.status}`, response.ok ? 'success' : 'error');
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    log(`API Data: ${JSON.stringify(data, null, 2)}`, 'success');
+                } else {
+                    log(`API Error: ${response.statusText}`, 'error');
+                }
+            } catch (error) {
+                log(`API Exception: ${error.message}`, 'error');
+            }
+        }
+        
+        function testButtonExists() {
+            log('Testing if button exists in current context...');
+            
+            // Crear un iframe para cargar la página principal
+            const iframe = document.createElement('iframe');
+            iframe.src = '/';
+            iframe.style.cssText = 'width: 100%; height: 400px; border: 1px solid #ccc; margin: 10px 0;';
+            document.body.appendChild(iframe);
+            
+            iframe.onload = function() {
+                setTimeout(() => {
+                    try {
+                        const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+                        const button = iframeDoc.getElementById('whisper-settings-btn');
+                        
+                        if (button) {
+                            log('✅ Button found in main page!', 'success');
+                            log(`Button text: "${button.textContent.trim()}"`, 'info');
+                            log(`Button has onclick: ${!!button.onclick}`, 'info');
+                            log(`Button has event listeners: checking...`, 'info');
+                            
+                            // Test click
+                            button.click();
+                            log('Button clicked programmatically', 'info');
+                        } else {
+                            log('❌ Button NOT found in main page!', 'error');
+                            
+                            // List all buttons to debug
+                            const allButtons = iframeDoc.querySelectorAll('button');
+                            log(`Found ${allButtons.length} buttons total:`, 'info');
+                            allButtons.forEach((btn, i) => {
+                                log(`  Button ${i+1}: id="${btn.id}", text="${btn.textContent.trim()}"`, 'info');
+                            });
+                        }
+                    } catch (error) {
+                        log(`Error accessing iframe content: ${error.message}`, 'error');
+                    }
+                }, 1000);
+            };
+        }
+        
+        async function testShowWhisperSettings() {
+            try {
+                log('Testing showWhisperSettings function...');
+                
+                // Simular la función showWhisperSettings
+                const response = await fetch('/api/whisper/models');
+                const data = await response.json();
+                
+                log('Creating modal...', 'info');
+                
+                // Crear modal simple
+                const modal = document.createElement('div');
+                modal.style.cssText = `
+                    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+                    background: rgba(0,0,0,0.5); display: flex; align-items: center;
+                    justify-content: center; z-index: 1000;
+                `;
+                
+                const content = document.createElement('div');
+                content.style.cssText = `
+                    background: white; padding: 20px; border-radius: 8px;
+                    max-width: 500px; width: 90%;
+                `;
+                
+                content.innerHTML = `
+                    <h3>Configuración de Whisper</h3>
+                    <p><strong>Modelo actual:</strong> ${data.current_model}</p>
+                    <h4>Modelos disponibles:</h4>
+                    <ul>
+                        ${data.available_models.map(model => `
+                            <li>${model.name} - ${model.size} (${model.speed})</li>
+                        `).join('')}
+                    </ul>
+                    <button onclick="this.parentElement.parentElement.remove()">Cerrar</button>
+                `;
+                
+                modal.appendChild(content);
+                document.body.appendChild(modal);
+                
+                log('Modal created successfully!', 'success');
+                
+            } catch (error) {
+                log(`Error in showWhisperSettings: ${error.message}`, 'error');
+            }
+        }
+        
+        // Auto-test on load
+        window.onload = function() {
+            log('Debug page loaded', 'info');
+            testWhisperAPI();
+        };
+    </script>
+</body>
+</html>

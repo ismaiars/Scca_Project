@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Whisper Settings</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .btn { padding: 10px 20px; margin: 10px; cursor: pointer; }
+        .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); display: flex; justify-content: center; align-items: center; }
+        .modal-content { background: white; padding: 20px; border-radius: 10px; max-width: 600px; width: 90%; }
+        .model-card { border: 2px solid #ccc; padding: 15px; margin: 10px 0; cursor: pointer; border-radius: 8px; }
+        .model-card.selected { border-color: #007bff; background: #f0f8ff; }
+        .model-card.active { border-color: #28a745; background: #f8fff9; }
+    </style>
+</head>
+<body>
+    <h1>Test Configuración Whisper</h1>
+    <button id="test-btn" class="btn">Probar Configuración Whisper</button>
+    <div id="result"></div>
+
+    <script>
+        document.getElementById('test-btn').addEventListener('click', async () => {
+            try {
+                console.log('Iniciando prueba...');
+                
+                // Obtener modelos
+                const response = await fetch('/api/whisper/models');
+                console.log('Response status:', response.status);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+                
+                const data = await response.json();
+                console.log('Data received:', data);
+                
+                // Crear modal
+                const modal = document.createElement('div');
+                modal.className = 'modal';
+                modal.innerHTML = `
+                    <div class="modal-content">
+                        <h3>Configuración de Whisper</h3>
+                        <p>Modelo actual: <strong>${data.current_model.model_name}</strong></p>
+                        <div class="models-grid">
+                            ${Object.entries(data.available_models).map(([name, info]) => `
+                                <div class="model-card ${name === data.current_model.model_name ? 'active' : ''}" data-model="${name}">
+                                    <h5>${name.toUpperCase()}</h5>
+                                    <p>Tamaño: ${info.size}</p>
+                                    <p>Velocidad: ${info.speed}</p>
+                                    <p>Precisión: ${info.accuracy}</p>
+                                    <p>Recomendado para: ${info.recommended_for}</p>
+                                </div>
+                            `).join('')}
+                        </div>
+                        <button onclick="this.parentElement.parentElement.remove()">Cerrar</button>
+                        <button onclick="changeModel()">Cambiar Modelo</button>
+                    </div>
+                `;
+                
+                document.body.appendChild(modal);
+                
+                // Agregar event listeners
+                const modelCards = modal.querySelectorAll('.model-card');
+                modelCards.forEach(card => {
+                    card.addEventListener('click', () => {
+                        modelCards.forEach(c => c.classList.remove('selected'));
+                        card.classList.add('selected');
+                    });
+                });
+                
+                document.getElementById('result').innerHTML = '<p style="color: green;">Modal creado exitosamente!</p>';
+                
+            } catch (error) {
+                console.error('Error:', error);
+                document.getElementById('result').innerHTML = `<p style="color: red;">Error: ${error.message}</p>`;
+            }
+        });
+        
+        async function changeModel() {
+            try {
+                const selectedCard = document.querySelector('.model-card.selected');
+                if (!selectedCard) {
+                    alert('Selecciona un modelo primero');
+                    return;
+                }
+                
+                const modelName = selectedCard.dataset.model;
+                console.log('Cambiando a modelo:', modelName);
+                
+                const response = await fetch('/api/whisper/change_model', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ model_name: modelName })
+                });
+                
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.detail || 'Error al cambiar modelo');
+                }
+                
+                const result = await response.json();
+                console.log('Resultado:', result);
+                
+                alert(`Modelo cambiado a ${modelName} exitosamente!`);
+                document.querySelector('.modal').remove();
+                
+            } catch (error) {
+                console.error('Error cambiando modelo:', error);
+                alert(`Error: ${error.message}`);
+            }
+        }
+    </script>
+</body>
+</html>

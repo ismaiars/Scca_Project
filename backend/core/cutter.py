@@ -71,6 +71,17 @@ class VideoCutter:
         start_time = clip["start_time"]
         duration = clip["duration"]
         
+        logger.info(f"Cortando clip {clip_number}: {clip['title']}")
+        logger.info(f"Video origen: {video_path}")
+        logger.info(f"Archivo destino: {output_path}")
+        logger.info(f"Tiempo inicio: {start_time}, Duración: {duration}")
+        
+        # Verificar que el archivo de video existe
+        if not os.path.exists(video_path):
+            error_msg = f"El archivo de video no existe: {video_path}"
+            logger.error(error_msg)
+            raise Exception(error_msg)
+        
         try:
             # Usar ffmpeg-python para cortar el clip
             stream = ffmpeg.input(video_path, ss=start_time, t=duration)
@@ -83,9 +94,13 @@ class VideoCutter:
                 crf=23
             )
             
+            # Compilar el comando FFmpeg
+            cmd = ffmpeg.compile(stream, overwrite_output=True)
+            logger.info(f"Comando FFmpeg: {' '.join(cmd)}")
+            
             # Ejecutar el comando de forma asíncrona
             process = await asyncio.create_subprocess_exec(
-                *ffmpeg.compile(stream, overwrite_output=True),
+                *cmd,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE
             )
@@ -94,9 +109,18 @@ class VideoCutter:
             
             if process.returncode != 0:
                 error_msg = stderr.decode() if stderr else "Error desconocido en FFmpeg"
-                logger.error(f"Error en FFmpeg: {error_msg}")
+                logger.error(f"Error en FFmpeg (código {process.returncode}): {error_msg}")
+                if stdout:
+                    logger.error(f"FFmpeg stdout: {stdout.decode()}")
                 raise Exception(f"Error cortando clip: {error_msg}")
             
+            # Verificar que el archivo se creó correctamente
+            if not output_path.exists():
+                error_msg = f"El archivo de salida no se creó: {output_path}"
+                logger.error(error_msg)
+                raise Exception(error_msg)
+            
+            logger.info(f"Clip cortado exitosamente: {output_path}")
             return output_path
             
         except Exception as e:

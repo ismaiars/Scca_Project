@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug Transcripciones</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .log { background: #f0f0f0; padding: 10px; margin: 10px 0; border-radius: 5px; }
+        .error { background: #ffebee; color: #c62828; }
+        .success { background: #e8f5e8; color: #2e7d32; }
+        .info { background: #e3f2fd; color: #1565c0; }
+        button { padding: 10px 20px; margin: 10px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <h1>Debug: Botón Ver Transcripciones</h1>
+    
+    <button id="test-transcriptions-btn">Ver Transcripciones Guardadas</button>
+    <button onclick="testAPI()">Probar API Directamente</button>
+    <button onclick="clearLogs()">Limpiar Logs</button>
+    
+    <div id="logs"></div>
+    
+    <script>
+        function log(message, type = 'info') {
+            const logsDiv = document.getElementById('logs');
+            const logDiv = document.createElement('div');
+            logDiv.className = `log ${type}`;
+            logDiv.innerHTML = `[${new Date().toLocaleTimeString()}] ${message}`;
+            logsDiv.appendChild(logDiv);
+            console.log(`[${type.toUpperCase()}] ${message}`);
+        }
+        
+        function clearLogs() {
+            document.getElementById('logs').innerHTML = '';
+        }
+        
+        async function testAPI() {
+            log('Probando API /api/transcriptions directamente...', 'info');
+            try {
+                const response = await fetch('/api/transcriptions');
+                log(`Respuesta API: Status ${response.status}`, response.ok ? 'success' : 'error');
+                
+                const data = await response.json();
+                log(`Datos recibidos: ${JSON.stringify(data, null, 2)}`, 'info');
+                
+                if (data.transcriptions && data.transcriptions.length > 0) {
+                    log(`Se encontraron ${data.transcriptions.length} transcripciones`, 'success');
+                } else {
+                    log('No se encontraron transcripciones', 'error');
+                }
+            } catch (error) {
+                log(`Error en API: ${error.message}`, 'error');
+            }
+        }
+        
+        async function showTranscriptions() {
+            log('Función showTranscriptions llamada', 'info');
+            try {
+                const response = await fetch('/api/transcriptions');
+                const data = await response.json();
+                
+                log(`Respuesta recibida: ${JSON.stringify(data)}`, 'info');
+                
+                if (data.transcriptions && data.transcriptions.length > 0) {
+                    log(`Mostrando ${data.transcriptions.length} transcripciones`, 'success');
+                    displayTranscriptionsList(data.transcriptions);
+                } else {
+                    log('No hay transcripciones guardadas', 'error');
+                }
+            } catch (error) {
+                log(`Error cargando transcripciones: ${error.message}`, 'error');
+            }
+        }
+        
+        function displayTranscriptionsList(transcriptions) {
+            log('Función displayTranscriptionsList llamada', 'info');
+            
+            // Crear contenedor si no existe
+            let resultsContainer = document.getElementById('results-container');
+            if (!resultsContainer) {
+                resultsContainer = document.createElement('div');
+                resultsContainer.id = 'results-container';
+                document.body.appendChild(resultsContainer);
+            }
+            
+            resultsContainer.style.display = 'block';
+            resultsContainer.innerHTML = `
+                <h3>📝 Transcripciones Guardadas</h3>
+                <p>Total: ${transcriptions.length} transcripciones</p>
+                <div>
+                    ${transcriptions.map(transcript => `
+                        <div style="border: 1px solid #ccc; padding: 10px; margin: 10px 0;">
+                            <h4>📹 ${transcript.filename}</h4>
+                            <p>🆔 ${transcript.job_id}</p>
+                            <p>📅 ${new Date(transcript.timestamp).toLocaleString('es-ES')}</p>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+            
+            log('Lista de transcripciones mostrada', 'success');
+        }
+        
+        // Configurar evento del botón
+        document.addEventListener('DOMContentLoaded', function() {
+            log('DOM cargado, configurando eventos...', 'info');
+            
+            const btn = document.getElementById('test-transcriptions-btn');
+            if (btn) {
+                log('Botón encontrado, agregando evento click', 'success');
+                btn.addEventListener('click', function() {
+                    log('¡Botón clickeado!', 'success');
+                    showTranscriptions();
+                });
+            } else {
+                log('ERROR: Botón no encontrado', 'error');
+            }
+        });
+        
+        log('Script cargado', 'info');
+    </script>
+</body>
+</html>

@@ -6,22 +6,34 @@ from fastapi.templating import Jinja2Templates
 from fastapi.requests import Request
 from fastapi.responses import HTMLResponse
 from pathlib import Path
-from .api import router
+from api import router
 
-# Configurar logging
+# Configurar logging con mejor formato para seguimiento de progreso
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(),  # Para mostrar en consola
+    ]
 )
+
+# Configurar nivel de logging específico para componentes del sistema
+logging.getLogger('core.job_manager').setLevel(logging.INFO)
+logging.getLogger('core.transcriber').setLevel(logging.INFO)
+logging.getLogger('core.analyzer').setLevel(logging.INFO)
+logging.getLogger('core.cutter').setLevel(logging.INFO)
 
 logger = logging.getLogger(__name__)
 
-# Crear aplicación FastAPI
+# Crear aplicación FastAPI con límite de tamaño aumentado
 app = FastAPI(
     title="Sistema de Creación de Contenido Automatizado (SCCA)",
     description="Aplicación web para extraer clips temáticos de videos usando IA",
     version="1.0.0"
 )
+
+# Nota: FastAPI no tiene límite de tamaño por defecto, pero uvicorn sí
+# El límite se configura al iniciar el servidor
 
 # Configurar rutas de archivos estáticos y templates
 BASE_DIR = Path(__file__).parent.parent
@@ -90,7 +102,9 @@ def main():
         host="127.0.0.1",
         port=8000,
         reload=True,
-        log_level="info"
+        log_level="info",
+        limit_max_requests=None,  # Sin límite de requests
+        timeout_keep_alive=300   # Timeout extendido para archivos grandes
     )
 
 if __name__ == "__main__":

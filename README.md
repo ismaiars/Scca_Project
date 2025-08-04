@@ -149,7 +149,7 @@ Abrir navegador en: http://localhost:8000
 
 ### 3. Usar la interfaz
 
-1. **Subir video**: Seleccionar archivo de video (máx. 500MB)
+1. **Subir video**: Seleccionar archivo de video (máx. 2GB)
 2. **Configurar contexto**: Describir el contenido del video
 3. **Definir temas**: Especificar temas de interés separados por comas
 4. **Seleccionar perfil**:

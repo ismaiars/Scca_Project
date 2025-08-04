@@ -77,6 +77,15 @@
                     <i class="fas fa-play"></i> Iniciar Proceso
                 </button>
             </form>
+            
+            <div class="control-actions">
+                <button id="transcriptions-btn" class="btn-info">
+                    <i class="fas fa-file-text"></i> Ver Transcripciones Guardadas
+                </button>
+                <button type="button" id="whisper-settings-btn" class="btn-secondary" onclick="console.log('Button clicked directly'); app.showWhisperSettings();">
+                    <i class="fas fa-cog"></i> Configurar Velocidad
+                </button>
+            </div>
         </section>
 
         <!-- Área de Progreso -->
@@ -168,6 +177,13 @@
                 <button id="download-all-btn" class="btn-primary">
                     <i class="fas fa-download"></i> Descargar Todos
                 </button>
+            </div>
+        </section>
+
+        <!-- Contenedor de Resultados Dinámico -->
+        <section id="results-container" class="panel hidden">
+            <div id="results-content">
+                <!-- Contenido dinámico (clips o transcripciones) -->
             </div>
         </section>
 
