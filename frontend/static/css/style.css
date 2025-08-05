@@ -300,22 +300,28 @@ body::before {
     color: #4a5568;
 }
 
-/* Botones */
+/* Botones - Estilo Base Estandarizado */
 .btn-primary,
-.btn-secondary {
+.btn-secondary,
+.btn-info,
+.btn-success,
+.btn-warning {
     padding: 18px 35px;
     border: none;
     border-radius: 12px;
     font-size: 1.1rem;
     font-weight: 600;
     cursor: pointer;
-    transition: all 0.3s ease;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
     display: inline-flex;
     align-items: center;
     justify-content: center;
     text-decoration: none;
     position: relative;
     overflow: hidden;
+    gap: 8px;
+    box-shadow: 0 8px 25px rgba(30, 64, 175, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(59, 130, 246, 0.2);
 }
 
 .btn-primary {
@@ -573,8 +579,8 @@ body::before {
 
 .clip-actions .btn-primary,
 .clip-actions .btn-secondary {
-    padding: 8px 15px;
-    font-size: 0.9rem;
+    padding: 18px 35px;
+    font-size: 1.1rem;
 }
 
 /* Acciones de resultados */
@@ -696,22 +702,8 @@ body::before {
 
 /* Estilos para Transcripciones */
 .btn-info {
-    background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 50%, #0369a1 100%);
+    background: linear-gradient(135deg, #1e40af 0%, #2563eb 25%, #3b82f6 50%, #60a5fa 100%);
     color: white;
-    border: 1px solid rgba(14, 165, 233, 0.3);
-    padding: 18px 35px;
-    border-radius: 12px;
-    font-size: 1.1rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    box-shadow: 0 8px 25px rgba(14, 165, 233, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.1);
-    position: relative;
-    overflow: hidden;
 }
 
 .btn-info::before {
@@ -735,25 +727,22 @@ body::before {
     left: 100%;
 }
 
-.btn-success {
-    background: linear-gradient(135deg, #1e40af 0%, #1d4ed8 50%, #2563eb 100%);
+.btn-warning {
+    background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 25%, #2563eb 50%, #3b82f6 100%);
     color: white;
-    border: 1px solid rgba(30, 64, 175, 0.3);
-    padding: 18px 35px;
-    border-radius: 12px;
-    font-size: 1.1rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    box-shadow: 0 8px 25px rgba(30, 64, 175, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.1);
-    position: relative;
-    overflow: hidden;
 }
 
-.btn-success::before {
+.btn-success {
+    background: linear-gradient(135deg, #1e40af 0%, #1d4ed8 25%, #2563eb 50%, #3b82f6 100%);
+    color: white;
+}
+
+/* Efectos universales para todos los botones */
+.btn-primary::before,
+.btn-secondary::before,
+.btn-info::before,
+.btn-success::before,
+.btn-warning::before {
     content: '';
     position: absolute;
     top: 0;
@@ -764,10 +753,21 @@ body::before {
     transition: left 0.5s ease;
 }
 
-.btn-success:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 12px 35px rgba(30, 64, 175, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.2);
-    background: linear-gradient(135deg, #2563eb 0%, #3b82f6 50%, #60a5fa 100%);
+.btn-primary:hover,
+.btn-secondary:hover,
+.btn-info:hover,
+.btn-success:hover,
+.btn-warning:hover {
+    transform: translateY(-3px) scale(1.02);
+    box-shadow: 0 15px 40px rgba(30, 64, 175, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+.btn-primary:hover::before,
+.btn-secondary:hover::before,
+.btn-info:hover::before,
+.btn-success:hover::before,
+.btn-warning:hover::before {
+    left: 100%;
 }
 
 .btn-success:hover::before {

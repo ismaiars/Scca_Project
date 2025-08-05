@@ -488,7 +488,15 @@ class SCCAApp {
     
     async validateSystem() {
         try {
-            const response = await fetch('/api/system/validate');
+            // Agregar un pequeño delay para asegurar que el servidor esté listo
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            
+            const response = await fetch('/api/system/validate', {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
             
             if (!response.ok) {
                 console.warn('Error en validación del sistema:', response.status);
@@ -514,7 +522,8 @@ class SCCAApp {
                 }
             }
         } catch (error) {
-            console.error('Error validando sistema:', error);
+            // Solo mostrar error en consola, no al usuario, ya que puede ser un problema temporal
+            console.warn('Sistema de validación no disponible temporalmente:', error.message);
         }
     }
     
