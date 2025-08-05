@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.requests import Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, FileResponse
 from pathlib import Path
 from api import router
 
@@ -55,6 +55,13 @@ async def read_root(request: Request):
     Página principal de la aplicación
     """
     return templates.TemplateResponse("index.html", {"request": request})
+
+@app.get("/cache", response_class=HTMLResponse)
+async def cache_manager(request: Request):
+    """
+    Página de gestión de caché de análisis
+    """
+    return FileResponse("frontend/static/cache_manager.html")
 
 @app.get("/health")
 async def health_check():

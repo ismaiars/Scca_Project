@@ -1,0 +1,1105 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestor de Caché de Análisis - SCCA</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 25%, #334155 50%, #475569 75%, #64748b 100%);
+            min-height: 100vh;
+            padding: 20px;
+            position: relative;
+            color: #1e293b;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: 
+                radial-gradient(circle at 20% 20%, rgba(59, 130, 246, 0.15) 0%, transparent 40%),
+                radial-gradient(circle at 80% 80%, rgba(37, 99, 235, 0.1) 0%, transparent 40%),
+                radial-gradient(circle at 40% 60%, rgba(29, 78, 216, 0.08) 0%, transparent 40%),
+                linear-gradient(45deg, rgba(30, 64, 175, 0.05) 0%, transparent 50%);
+            pointer-events: none;
+            z-index: -1;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #1e40af 0%, #1d4ed8 25%, #2563eb 50%, #3b82f6 75%, #60a5fa 100%);
+            color: white;
+            padding: 60px 40px;
+            text-align: center;
+            border-radius: 16px;
+            box-shadow: 0 25px 50px rgba(30, 64, 175, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+            position: relative;
+            overflow: hidden;
+            border: 1px solid rgba(59, 130, 246, 0.2);
+            margin-bottom: 40px;
+        }
+
+        .header::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: 
+                radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+            animation: headerFloat 8s ease-in-out infinite;
+        }
+
+        @keyframes headerFloat {
+            0%, 100% { transform: translateY(0px) rotate(0deg); }
+            50% { transform: translateY(-30px) rotate(180deg); }
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+
+        .controls {
+            padding: 40px;
+            background: linear-gradient(145deg, rgba(248, 250, 252, 0.95) 0%, rgba(241, 245, 249, 0.9) 100%);
+            border-radius: 16px;
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(148, 163, 184, 0.2);
+            box-shadow: 
+                0 20px 40px rgba(15, 23, 42, 0.15),
+                0 8px 16px rgba(30, 41, 59, 0.1),
+                inset 0 1px 0 rgba(255, 255, 255, 0.8);
+            margin-bottom: 30px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .controls::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #1e40af, #2563eb, #3b82f6, #60a5fa, #1e40af);
+            background-size: 300% 100%;
+            animation: gradientShift 4s ease infinite;
+        }
+
+        @keyframes gradientShift {
+            0%, 100% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+        }
+
+        .controls-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .btn {
+            padding: 14px 28px;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            font-size: 1em;
+            font-weight: 600;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #1e40af 0%, #1d4ed8 25%, #2563eb 50%, #3b82f6 100%);
+            color: white;
+            box-shadow: 
+                0 8px 20px rgba(30, 64, 175, 0.3),
+                0 4px 8px rgba(37, 99, 235, 0.2),
+                inset 0 1px 0 rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(59, 130, 246, 0.2);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn-success::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+            transition: left 0.5s ease;
+        }
+
+        .btn-success:hover::before {
+            left: 100%;
+        }
+
+        .btn-warning {
+            background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 25%, #2563eb 50%, #3b82f6 100%);
+            color: white;
+            box-shadow: 
+                0 8px 20px rgba(30, 58, 138, 0.3),
+                0 4px 8px rgba(30, 64, 175, 0.2),
+                inset 0 1px 0 rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(37, 99, 235, 0.2);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn-warning::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+            transition: left 0.5s ease;
+        }
+
+        .btn-warning:hover::before {
+            left: 100%;
+        }
+
+        .btn-info {
+            background: linear-gradient(135deg, #1e40af 0%, #2563eb 25%, #3b82f6 50%, #60a5fa 100%);
+            color: white;
+            box-shadow: 
+                0 8px 20px rgba(30, 64, 175, 0.3),
+                0 4px 8px rgba(37, 99, 235, 0.2),
+                inset 0 1px 0 rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(59, 130, 246, 0.2);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn-info::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+            transition: left 0.5s ease;
+        }
+
+        .btn-info:hover::before {
+            left: 100%;
+        }
+
+        .btn:hover {
+            transform: translateY(-3px) scale(1.05);
+            box-shadow: 
+                0 15px 35px rgba(30, 64, 175, 0.4),
+                0 8px 16px rgba(37, 99, 235, 0.3),
+                inset 0 1px 0 rgba(255, 255, 255, 0.2);
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .stat-card {
+            background: linear-gradient(145deg, rgba(248, 250, 252, 0.95) 0%, rgba(241, 245, 249, 0.9) 100%);
+            padding: 35px;
+            border-radius: 20px;
+            text-align: center;
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(148, 163, 184, 0.2);
+            box-shadow: 
+                0 20px 40px rgba(15, 23, 42, 0.15),
+                0 8px 16px rgba(30, 41, 59, 0.1),
+                inset 0 1px 0 rgba(255, 255, 255, 0.8);
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(59, 130, 246, 0.1), transparent);
+            transition: left 0.6s ease;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-12px) scale(1.02);
+            box-shadow: 
+                0 30px 60px rgba(30, 64, 175, 0.25),
+                0 12px 24px rgba(37, 99, 235, 0.15),
+                inset 0 1px 0 rgba(255, 255, 255, 0.9);
+            border-color: rgba(59, 130, 246, 0.3);
+        }
+
+        .stat-card:hover::before {
+            left: 100%;
+        }
+
+        .stat-number {
+            font-size: 2.5em;
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 5px;
+        }
+
+        .stat-label {
+            color: #6c757d;
+            font-size: 0.9em;
+        }
+
+        .content {
+            padding: 30px;
+        }
+
+        .cache-list {
+            display: grid;
+            gap: 20px;
+        }
+
+        .cache-item {
+            background: linear-gradient(145deg, rgba(248, 250, 252, 0.95) 0%, rgba(241, 245, 249, 0.9) 100%);
+            border: 1px solid rgba(148, 163, 184, 0.2);
+            border-radius: 16px;
+            padding: 30px;
+            box-shadow: 
+                0 20px 40px rgba(15, 23, 42, 0.15),
+                0 8px 16px rgba(30, 41, 59, 0.1),
+                inset 0 1px 0 rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(20px);
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .cache-item::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #1e40af, #2563eb, #3b82f6, #60a5fa, #1e40af);
+            background-size: 300% 100%;
+            animation: shimmer 4s ease infinite;
+        }
+
+        @keyframes shimmer {
+            0%, 100% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+        }
+
+        .cache-item:hover {
+            transform: translateY(-6px) scale(1.01);
+            box-shadow: 
+                0 25px 50px rgba(30, 64, 175, 0.2),
+                0 12px 24px rgba(37, 99, 235, 0.15),
+                inset 0 1px 0 rgba(255, 255, 255, 0.9);
+            border-color: rgba(59, 130, 246, 0.3);
+        }
+
+        .cache-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 15px;
+        }
+
+        .cache-title {
+            font-size: 1.3em;
+            font-weight: bold;
+            color: #2c3e50;
+            margin-bottom: 5px;
+        }
+
+        .cache-meta {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .meta-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: #6c757d;
+            font-size: 0.9em;
+        }
+
+        .cache-params {
+            background: linear-gradient(145deg, rgba(241, 245, 249, 0.8) 0%, rgba(248, 250, 252, 0.9) 100%);
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            border: 1px solid rgba(148, 163, 184, 0.15);
+            backdrop-filter: blur(10px);
+        }
+
+        .cache-params h4 {
+            color: #495057;
+            margin-bottom: 10px;
+        }
+
+        .param-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 10px;
+        }
+
+        .param-item {
+            background: linear-gradient(145deg, rgba(255, 255, 255, 0.9) 0%, rgba(248, 250, 252, 0.8) 100%);
+            padding: 12px;
+            border-radius: 8px;
+            border-left: 4px solid #2563eb;
+            box-shadow: 0 2px 8px rgba(30, 64, 175, 0.1);
+            transition: all 0.3s ease;
+        }
+
+        .param-item:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(30, 64, 175, 0.15);
+            border-left-color: #1e40af;
+        }
+
+        .param-label {
+            font-weight: 600;
+            color: #495057;
+            margin-bottom: 3px;
+        }
+
+        .param-value {
+            color: #6c757d;
+            font-size: 0.9em;
+        }
+
+        .cache-actions {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .btn-sm {
+            padding: 8px 16px;
+            font-size: 0.9em;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #6c757d;
+        }
+
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #6c757d;
+        }
+
+        .empty-state h3 {
+            margin-bottom: 15px;
+            color: #495057;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+        }
+
+        .modal-content {
+            background-color: white;
+            margin: 5% auto;
+            padding: 0;
+            border-radius: 12px;
+            width: 90%;
+            max-width: 800px;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 12px 12px 0 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-body {
+            padding: 30px;
+        }
+
+        .close {
+            color: white;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            background: none;
+            border: none;
+        }
+
+        .close:hover {
+            opacity: 0.7;
+        }
+
+        .clips-grid {
+            display: grid;
+            gap: 15px;
+        }
+
+        .clip-item {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #28a745;
+        }
+
+        .clip-title {
+            font-weight: bold;
+            color: #2c3e50;
+            margin-bottom: 8px;
+        }
+
+        .clip-meta {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 10px;
+            font-size: 0.9em;
+            color: #6c757d;
+        }
+
+        .clip-description {
+            color: #495057;
+            font-size: 0.9em;
+            line-height: 1.4;
+        }
+
+        .progress-modal {
+            text-align: center;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background-color: #e9ecef;
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 20px 0;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(135deg, #56ab2f 0%, #a8e6cf 100%);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 15px 20px;
+            border-radius: 8px;
+            color: white;
+            font-weight: 600;
+            z-index: 1001;
+            transform: translateX(400px);
+            transition: transform 0.3s ease;
+        }
+
+        .notification.show {
+            transform: translateX(0);
+        }
+
+        .notification.success {
+            background: linear-gradient(135deg, #56ab2f 0%, #a8e6cf 100%);
+        }
+
+        .notification.error {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        }
+
+        .notification.info {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🗄️ Gestor de Caché de Análisis</h1>
+            <p>Administra y reutiliza análisis de video guardados</p>
+        </div>
+
+        <div class="controls">
+            <div class="stats" id="stats">
+                <div class="stat-card">
+                    <div class="stat-number" id="total-cache">-</div>
+                    <div class="stat-label">Análisis en Caché</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="total-clips">-</div>
+                    <div class="stat-label">Clips Disponibles</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="cache-size">-</div>
+                    <div class="stat-label">Tamaño del Caché</div>
+                </div>
+            </div>
+
+            <div class="controls-grid">
+                <button class="btn btn-primary" onclick="loadCacheList()">
+                    🔄 Actualizar Lista
+                </button>
+                <button class="btn btn-info" onclick="showCacheInfo()">
+                    ℹ️ Información del Sistema
+                </button>
+                <button class="btn btn-warning" onclick="confirmClearCache()">
+                    🗑️ Limpiar Caché
+                </button>
+                <button class="btn btn-success" onclick="window.location.href='/'">
+                    🏠 Volver al Inicio
+                </button>
+            </div>
+        </div>
+
+        <div class="content">
+            <div id="loading" class="loading">
+                <div class="spinner"></div>
+                <p>Cargando análisis guardados...</p>
+            </div>
+
+            <div id="cache-container" class="cache-list" style="display: none;">
+                <!-- Los elementos de caché se cargarán aquí -->
+            </div>
+
+            <div id="empty-state" class="empty-state" style="display: none;">
+                <h3>📭 No hay análisis en caché</h3>
+                <p>Cuando realices análisis de videos, aparecerán aquí para poder reutilizarlos.</p>
+                <button class="btn btn-primary" onclick="window.location.href='/'" style="margin-top: 20px;">
+                    🎬 Analizar Nuevo Video
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal para mostrar clips -->
+    <div id="clips-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modal-title">📋 Clips del Análisis</h2>
+                <button class="close" onclick="closeModal('clips-modal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="clips-content">
+                    <!-- Contenido de clips se carga aquí -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de progreso -->
+    <div id="progress-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>🎬 Generando Clips</h2>
+            </div>
+            <div class="modal-body progress-modal">
+                <p id="progress-message">Preparando generación de clips...</p>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progress-fill"></div>
+                </div>
+                <p id="progress-details">0% completado</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let cacheData = [];
+
+        // Cargar lista de caché al iniciar
+        document.addEventListener('DOMContentLoaded', function() {
+            loadCacheList();
+        });
+
+        async function loadCacheList() {
+            try {
+                showLoading(true);
+                const response = await fetch('/api/cache/analysis');
+                const data = await response.json();
+                
+                cacheData = data.cache_files || [];
+                updateStats(data);
+                displayCacheList(cacheData);
+                showLoading(false);
+                
+            } catch (error) {
+                console.error('Error cargando caché:', error);
+                showNotification('Error al cargar el caché', 'error');
+                showLoading(false);
+                showEmptyState();
+            }
+        }
+
+        function updateStats(data) {
+            document.getElementById('total-cache').textContent = data.total_files || 0;
+            document.getElementById('total-clips').textContent = data.total_clips || 0;
+            document.getElementById('cache-size').textContent = formatBytes(data.total_size || 0);
+        }
+
+        function displayCacheList(cacheFiles) {
+            const container = document.getElementById('cache-container');
+            
+            if (cacheFiles.length === 0) {
+                showEmptyState();
+                return;
+            }
+
+            container.innerHTML = cacheFiles.map(cache => createCacheElement(cache)).join('');
+            container.style.display = 'block';
+            document.getElementById('empty-state').style.display = 'none';
+        }
+
+        function createCacheElement(cache) {
+            const date = new Date(cache.timestamp).toLocaleString('es-ES');
+            const videoName = cache.video_path.split('\\').pop().split('/').pop();
+            
+            return `
+                <div class="cache-item">
+                    <div class="cache-header">
+                        <div>
+                            <div class="cache-title">📹 ${videoName}</div>
+                            <div class="cache-meta">
+                                <div class="meta-item">
+                                    <span>📅</span> ${date}
+                                </div>
+                                <div class="meta-item">
+                                    <span>🎞️</span> ${cache.clips_count} clips
+                                </div>
+                                <div class="meta-item">
+                                    <span>🆔</span> ${cache.cache_key.substring(0, 8)}...
+                                </div>
+                                <div class="meta-item">
+                                    <span>📊</span> ${formatBytes(cache.file_size)}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="cache-params">
+                        <h4>🎯 Parámetros del Análisis</h4>
+                        <div class="param-grid">
+                            <div class="param-item">
+                                <div class="param-label">Contexto:</div>
+                                <div class="param-value">${cache.analysis_params.context}</div>
+                            </div>
+                            <div class="param-item">
+                                <div class="param-label">Temas:</div>
+                                <div class="param-value">${cache.analysis_params.topics}</div>
+                            </div>
+                            <div class="param-item">
+                                <div class="param-label">Perfil:</div>
+                                <div class="param-value">${cache.analysis_params.profile}</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="cache-actions">
+                        <button class="btn btn-info btn-sm" onclick="viewClips('${cache.cache_key}')">
+                            👁️ Ver Clips
+                        </button>
+                        <button class="btn btn-success btn-sm" onclick="generateClips('${cache.cache_key}')">
+                            🎬 Generar Videos
+                        </button>
+                        <button class="btn btn-primary btn-sm" onclick="downloadCache('${cache.cache_key}')">
+                            💾 Descargar Análisis
+                        </button>
+                        <button class="btn btn-warning btn-sm" onclick="deleteCache('${cache.cache_key}')">
+                            🗑️ Eliminar
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+
+        async function viewClips(cacheKey) {
+            try {
+                const cache = cacheData.find(c => c.cache_key === cacheKey);
+                if (!cache) {
+                    showNotification('Caché no encontrado', 'error');
+                    return;
+                }
+
+                const response = await fetch(`/api/cache/analysis/${cacheKey}`);
+                const data = await response.json();
+                
+                showClipsModal(data);
+                
+            } catch (error) {
+                console.error('Error cargando clips:', error);
+                showNotification('Error al cargar clips', 'error');
+            }
+        }
+
+        function showClipsModal(cacheData) {
+            const modal = document.getElementById('clips-modal');
+            const title = document.getElementById('modal-title');
+            const content = document.getElementById('clips-content');
+            
+            const videoName = cacheData.video_path.split('\\').pop().split('/').pop();
+            title.textContent = `📋 Clips de ${videoName}`;
+            
+            content.innerHTML = `
+                <div style="margin-bottom: 20px;">
+                    <h3>📊 Resumen del Análisis</h3>
+                    <div class="param-grid">
+                        <div class="param-item">
+                            <div class="param-label">Total de clips:</div>
+                            <div class="param-value">${cacheData.clips_count}</div>
+                        </div>
+                        <div class="param-item">
+                            <div class="param-label">Contexto:</div>
+                            <div class="param-value">${cacheData.analysis_params.context}</div>
+                        </div>
+                        <div class="param-item">
+                            <div class="param-label">Temas:</div>
+                            <div class="param-value">${cacheData.analysis_params.topics}</div>
+                        </div>
+                        <div class="param-item">
+                            <div class="param-label">Perfil:</div>
+                            <div class="param-value">${cacheData.analysis_params.profile}</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <h3>🎞️ Lista de Clips</h3>
+                <div class="clips-grid">
+                    ${cacheData.clips.map((clip, index) => `
+                        <div class="clip-item">
+                            <div class="clip-title">${index + 1}. ${clip.title}</div>
+                            <div class="clip-meta">
+                                <span>⏱️ ${formatTime(clip.start_time)} - ${formatTime(clip.end_time)}</span>
+                                <span>📏 ${formatDuration(clip.duration)}</span>
+                                <span>⭐ ${(clip.confidence * 100).toFixed(0)}%</span>
+                            </div>
+                            <div class="clip-description">${clip.description}</div>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+            
+            modal.style.display = 'block';
+        }
+
+        async function generateClips(cacheKey) {
+            try {
+                const cache = cacheData.find(c => c.cache_key === cacheKey);
+                if (!cache) {
+                    showNotification('Caché no encontrado', 'error');
+                    return;
+                }
+
+                // Mostrar modal de progreso
+                showProgressModal();
+                
+                // Simular progreso (en una implementación real, esto vendría del servidor)
+                updateProgress(10, 'Cargando análisis desde caché...');
+                
+                // Llamar al endpoint para generar clips
+                const response = await fetch('/api/generate-clips-from-cache', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        cache_key: cacheKey
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Error en el servidor');
+                }
+                
+                const result = await response.json();
+                
+                // Simular progreso completo
+                updateProgress(100, 'Clips generados exitosamente!');
+                
+                setTimeout(() => {
+                    closeModal('progress-modal');
+                    showNotification(`${cache.clips_count} clips generados exitosamente`, 'success');
+                }, 1500);
+                
+            } catch (error) {
+                console.error('Error generando clips:', error);
+                closeModal('progress-modal');
+                showNotification('Error al generar clips', 'error');
+            }
+        }
+
+        async function downloadCache(cacheKey) {
+            try {
+                const response = await fetch(`/api/cache/analysis/${cacheKey}`);
+                const data = await response.json();
+                
+                const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `analysis_${cacheKey.substring(0, 8)}.json`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                window.URL.revokeObjectURL(url);
+                
+                showNotification('Análisis descargado', 'success');
+                
+            } catch (error) {
+                console.error('Error descargando caché:', error);
+                showNotification('Error al descargar', 'error');
+            }
+        }
+
+        async function deleteCache(cacheKey) {
+            if (!confirm('¿Estás seguro de que quieres eliminar este análisis del caché?')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/cache/analysis/${cacheKey}`, {
+                    method: 'DELETE'
+                });
+                
+                if (response.ok) {
+                    showNotification('Análisis eliminado del caché', 'success');
+                    loadCacheList(); // Recargar la lista
+                } else {
+                    throw new Error('Error en el servidor');
+                }
+                
+            } catch (error) {
+                console.error('Error eliminando caché:', error);
+                showNotification('Error al eliminar', 'error');
+            }
+        }
+
+        async function confirmClearCache() {
+            if (!confirm('¿Estás seguro de que quieres limpiar todo el caché? Esta acción no se puede deshacer.')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/cache/analysis', {
+                    method: 'DELETE'
+                });
+                
+                if (response.ok) {
+                    showNotification('Caché limpiado completamente', 'success');
+                    loadCacheList(); // Recargar la lista
+                } else {
+                    throw new Error('Error en el servidor');
+                }
+                
+            } catch (error) {
+                console.error('Error limpiando caché:', error);
+                showNotification('Error al limpiar caché', 'error');
+            }
+        }
+
+        function showCacheInfo() {
+            const modal = document.getElementById('clips-modal');
+            const title = document.getElementById('modal-title');
+            const content = document.getElementById('clips-content');
+            
+            title.textContent = 'ℹ️ Información del Sistema de Caché';
+            
+            content.innerHTML = `
+                <div>
+                    <h3>🗄️ Sistema de Caché de Análisis SCCA</h3>
+                    <p>El sistema de caché permite reutilizar análisis previos para generar clips sin necesidad de volver a procesar el video completo.</p>
+                    
+                    <h4>✨ Características:</h4>
+                    <ul style="margin: 15px 0; padding-left: 20px;">
+                        <li>🚀 <strong>Generación rápida:</strong> Reutiliza análisis existentes</li>
+                        <li>💾 <strong>Almacenamiento eficiente:</strong> Guarda solo los datos necesarios</li>
+                        <li>🔍 <strong>Búsqueda inteligente:</strong> Detecta análisis similares automáticamente</li>
+                        <li>🧹 <strong>Limpieza automática:</strong> Elimina archivos antiguos</li>
+                    </ul>
+                    
+                    <h4>📊 Estadísticas Actuales:</h4>
+                    <div class="param-grid">
+                        <div class="param-item">
+                            <div class="param-label">Análisis en caché:</div>
+                            <div class="param-value">${document.getElementById('total-cache').textContent}</div>
+                        </div>
+                        <div class="param-item">
+                            <div class="param-label">Clips disponibles:</div>
+                            <div class="param-value">${document.getElementById('total-clips').textContent}</div>
+                        </div>
+                        <div class="param-item">
+                            <div class="param-label">Tamaño total:</div>
+                            <div class="param-value">${document.getElementById('cache-size').textContent}</div>
+                        </div>
+                    </div>
+                    
+                    <h4>🛠️ Acciones Disponibles:</h4>
+                    <ul style="margin: 15px 0; padding-left: 20px;">
+                        <li><strong>Ver Clips:</strong> Examina los clips encontrados en el análisis</li>
+                        <li><strong>Generar Videos:</strong> Crea los archivos de video desde el caché</li>
+                        <li><strong>Descargar:</strong> Guarda el análisis en formato JSON</li>
+                        <li><strong>Eliminar:</strong> Borra un análisis específico del caché</li>
+                    </ul>
+                </div>
+            `;
+            
+            modal.style.display = 'block';
+        }
+
+        function showProgressModal() {
+            const modal = document.getElementById('progress-modal');
+            modal.style.display = 'block';
+            updateProgress(0, 'Iniciando...');
+        }
+
+        function updateProgress(percentage, message) {
+            document.getElementById('progress-fill').style.width = percentage + '%';
+            document.getElementById('progress-message').textContent = message;
+            document.getElementById('progress-details').textContent = `${percentage}% completado`;
+        }
+
+        function closeModal(modalId) {
+            document.getElementById(modalId).style.display = 'none';
+        }
+
+        function showLoading(show) {
+            document.getElementById('loading').style.display = show ? 'block' : 'none';
+            document.getElementById('cache-container').style.display = show ? 'none' : 'block';
+        }
+
+        function showEmptyState() {
+            document.getElementById('cache-container').style.display = 'none';
+            document.getElementById('empty-state').style.display = 'block';
+        }
+
+        function showNotification(message, type = 'info') {
+            const notification = document.createElement('div');
+            notification.className = `notification ${type}`;
+            notification.textContent = message;
+            
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.classList.add('show');
+            }, 100);
+            
+            setTimeout(() => {
+                notification.classList.remove('show');
+                setTimeout(() => {
+                    document.body.removeChild(notification);
+                }, 300);
+            }, 3000);
+        }
+
+        // Funciones de utilidad
+        function formatBytes(bytes) {
+            if (bytes === 0) return '0 B';
+            const k = 1024;
+            const sizes = ['B', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+        }
+
+        function formatTime(seconds) {
+            const mins = Math.floor(seconds / 60);
+            const secs = Math.floor(seconds % 60);
+            return `${mins}:${secs.toString().padStart(2, '0')}`;
+        }
+
+        function formatDuration(seconds) {
+            const mins = Math.floor(seconds / 60);
+            const secs = Math.floor(seconds % 60);
+            return `${mins}m ${secs}s`;
+        }
+
+        // Cerrar modales al hacer clic fuera
+        window.onclick = function(event) {
+            const modals = document.querySelectorAll('.modal');
+            modals.forEach(modal => {
+                if (event.target === modal) {
+                    modal.style.display = 'none';
+                }
+            });
+        }
+    </script>
+</body>
+</html>

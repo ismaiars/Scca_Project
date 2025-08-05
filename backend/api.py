@@ -481,3 +481,251 @@ async def get_video_info(
     except Exception as e:
         logger.error(f"Error obteniendo información del video: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/api/cache/analysis")
+async def get_analysis_cache():
+    """
+    Obtiene información sobre el caché de análisis
+    """
+    try:
+        cache_dir = Path("output") / "analysis_cache"
+        
+        if not cache_dir.exists():
+            return {
+                "cache_enabled": True,
+                "cache_directory": str(cache_dir),
+                "total_files": 0,
+                "total_size_mb": 0,
+                "cache_files": []
+            }
+        
+        cache_files = []
+        total_size = 0
+        
+        for cache_file in cache_dir.glob("*_analysis.json"):
+            try:
+                file_size = cache_file.stat().st_size
+                total_size += file_size
+                
+                # Leer información del caché
+                with open(cache_file, 'r', encoding='utf-8') as f:
+                    cache_data = json.load(f)
+                
+                cache_files.append({
+                    "cache_key": cache_data.get("cache_key", ""),
+                    "timestamp": cache_data.get("timestamp", ""),
+                    "video_path": cache_data.get("video_path", ""),
+                    "clips_count": cache_data.get("clips_count", 0),
+                    "analysis_params": cache_data.get("analysis_params", {}),
+                    "file_size": file_size,
+                    "filename": cache_file.name
+                })
+                
+            except Exception as e:
+                logger.error(f"Error leyendo archivo de caché {cache_file}: {e}")
+        
+        # Ordenar por timestamp (más reciente primero)
+        cache_files.sort(key=lambda x: x.get("timestamp", ""), reverse=True)
+        
+        # Calcular total de clips
+        total_clips = sum(cache.get("clips_count", 0) for cache in cache_files)
+        
+        return {
+            "cache_enabled": True,
+            "cache_directory": str(cache_dir),
+            "total_files": len(cache_files),
+            "total_clips": total_clips,
+            "total_size": total_size,
+            "cache_files": cache_files
+        }
+        
+    except Exception as e:
+        logger.error(f"Error obteniendo información del caché: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.delete("/api/cache/analysis")
+async def clear_analysis_cache():
+    """
+    Limpia todo el caché de análisis
+    """
+    try:
+        cache_dir = Path("output") / "analysis_cache"
+        
+        if not cache_dir.exists():
+            return {
+                "success": True,
+                "message": "No hay caché para limpiar",
+                "files_deleted": 0
+            }
+        
+        files_deleted = 0
+        for cache_file in cache_dir.glob("*_analysis.json"):
+            try:
+                cache_file.unlink()
+                files_deleted += 1
+            except Exception as e:
+                logger.error(f"Error eliminando archivo de caché {cache_file}: {e}")
+        
+        return {
+            "success": True,
+            "message": f"Caché limpiado exitosamente",
+            "files_deleted": files_deleted
+        }
+        
+    except Exception as e:
+        logger.error(f"Error limpiando caché: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.delete("/api/cache/analysis/{cache_key}")
+async def delete_specific_cache(cache_key: str):
+    """
+    Elimina un archivo específico del caché
+    """
+    try:
+        cache_dir = Path("output") / "analysis_cache"
+        cache_file = cache_dir / f"{cache_key}_analysis.json"
+        
+        if not cache_file.exists():
+            raise HTTPException(status_code=404, detail="Archivo de caché no encontrado")
+        
+        cache_file.unlink()
+        
+        return {
+            "success": True,
+            "message": f"Archivo de caché {cache_key} eliminado exitosamente"
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error eliminando archivo de caché específico: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/api/cache/analysis/{cache_key}")
+async def get_specific_cache(cache_key: str):
+    """
+    Obtiene un archivo específico del caché
+    """
+    try:
+        cache_dir = Path("output") / "analysis_cache"
+        cache_file = cache_dir / f"{cache_key}_analysis.json"
+        
+        if not cache_file.exists():
+            raise HTTPException(status_code=404, detail="Archivo de caché no encontrado")
+        
+        with open(cache_file, 'r', encoding='utf-8') as f:
+            cache_data = json.load(f)
+        
+        return cache_data
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error obteniendo archivo de caché específico: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/api/generate-clips-from-cache")
+async def generate_clips_from_cache(request: dict, background_tasks: BackgroundTasks):
+    """
+    Genera clips de video desde un análisis en caché
+    """
+    try:
+        cache_key = request.get("cache_key")
+        if not cache_key:
+            raise HTTPException(status_code=400, detail="cache_key es requerido")
+        
+        # Cargar datos del caché
+        cache_dir = Path("output") / "analysis_cache"
+        cache_file = cache_dir / f"{cache_key}_analysis.json"
+        
+        if not cache_file.exists():
+            raise HTTPException(status_code=404, detail="Archivo de caché no encontrado")
+        
+        with open(cache_file, 'r', encoding='utf-8') as f:
+            cache_data = json.load(f)
+        
+        # Verificar que el video original existe
+        video_path = cache_data.get("video_path")
+        if not video_path or not Path(video_path).exists():
+            raise HTTPException(status_code=404, detail="Video original no encontrado")
+        
+        # Crear job para generar clips
+        job_id = str(uuid.uuid4())
+        
+        # Agregar tarea en background
+        background_tasks.add_task(
+            _generate_clips_background,
+            job_id,
+            cache_data,
+            video_path
+        )
+        
+        return {
+            "success": True,
+            "job_id": job_id,
+            "message": f"Generación de {cache_data.get('clips_count', 0)} clips iniciada",
+            "clips_count": cache_data.get('clips_count', 0)
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error iniciando generación de clips desde caché: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+async def _generate_clips_background(job_id: str, cache_data: dict, video_path: str):
+    """
+    Función background para generar clips desde caché
+    """
+    try:
+        logger.info(f"Iniciando generación de clips desde caché para job {job_id}")
+        
+        # Crear instancia del cutter
+        cutter = VideoCutter()
+        
+        # Obtener clips del caché
+        clips = cache_data.get("clips", [])
+        
+        if not clips:
+            logger.error(f"No se encontraron clips en el caché para job {job_id}")
+            return
+        
+        # Crear directorio de salida
+        output_dir = Path("output") / "clips"
+        output_dir.mkdir(parents=True, exist_ok=True)
+        
+        logger.info(f"Generando {len(clips)} clips para job {job_id}")
+        
+        # Generar cada clip
+        successful_clips = 0
+        for i, clip in enumerate(clips, 1):
+            try:
+                # Crear nombre de archivo seguro
+                safe_title = "".join(c for c in clip.get("title", f"clip_{i}") if c.isalnum() or c in (' ', '-', '_')).rstrip()
+                safe_title = safe_title[:50]  # Limitar longitud
+                
+                output_filename = f"clip_{i:03d}_{safe_title}.mp4"
+                output_path = output_dir / output_filename
+                
+                # Generar clip
+                success = await cutter.cut_clip(
+                    video_path=video_path,
+                    start_time=clip.get("start_time", 0),
+                    end_time=clip.get("end_time", 30),
+                    output_path=str(output_path),
+                    title=clip.get("title", f"Clip {i}")
+                )
+                
+                if success:
+                    successful_clips += 1
+                    logger.info(f"Clip {i}/{len(clips)} generado: {output_filename}")
+                else:
+                    logger.error(f"Error generando clip {i}: {clip.get('title', 'Sin título')}")
+                    
+            except Exception as e:
+                logger.error(f"Error procesando clip {i}: {str(e)}")
+        
+        logger.info(f"Generación completada para job {job_id}: {successful_clips}/{len(clips)} clips exitosos")
+        
+    except Exception as e:
+        logger.error(f"Error en generación background para job {job_id}: {str(e)}")

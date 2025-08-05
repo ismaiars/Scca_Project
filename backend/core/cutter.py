@@ -46,6 +46,8 @@ class VideoCutter:
                     
                 except Exception as e:
                     logger.error(f"Error cortando clip {i+1}: {str(e)}")
+                    logger.error(f"Clip que falló: {clip}")
+                    logger.error(f"Tipo de error: {type(e).__name__}")
                     continue
             
             if progress_callback:
@@ -125,6 +127,10 @@ class VideoCutter:
             
         except Exception as e:
             logger.error(f"Error cortando clip individual: {str(e)}")
+            logger.error(f"Detalles del error: {type(e).__name__}: {e}")
+            if hasattr(e, '__traceback__'):
+                import traceback
+                logger.error(f"Traceback: {traceback.format_exc()}")
             raise e
     
     def _sanitize_filename(self, filename: str) -> str:
@@ -167,10 +173,18 @@ class VideoCutter:
             }
             
             if video_stream:
+                # Calcular FPS de forma segura
+                fps_str = video_stream['r_frame_rate']
+                if '/' in fps_str:
+                    num, den = fps_str.split('/')
+                    fps = float(num) / float(den) if float(den) != 0 else 0
+                else:
+                    fps = float(fps_str)
+                
                 info.update({
                     "width": int(video_stream['width']),
                     "height": int(video_stream['height']),
-                    "fps": eval(video_stream['r_frame_rate']),
+                    "fps": round(fps, 2),
                     "video_codec": video_stream['codec_name']
                 })
             

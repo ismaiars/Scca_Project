@@ -3,13 +3,14 @@ import uuid
 import json
 import logging
 import os
+import hashlib
 from typing import Dict, List, Optional, Callable
 from datetime import datetime, timedelta
 from pathlib import Path
 from fastapi import WebSocket
-from transcriber import WhisperTranscriber
-from analyzer import LLMAnalyzer
-from cutter import VideoCutter
+from .transcriber import WhisperTranscriber
+from .analyzer import LLMAnalyzer
+from .cutter import VideoCutter
 import ffmpeg
 
 logger = logging.getLogger(__name__)
@@ -183,20 +184,54 @@ class JobManager:
                 await self._save_transcription(job_id, transcription, job["video_path"])
             
             # Fase 2: Análisis
-            await self.send_progress_update(job_id, "analyzing", 0.33, "Iniciando análisis con IA...")
+            await self.send_progress_update(job_id, "analyzing", 0.33, "Verificando caché de análisis...")
             logger.info(f"🧠 FASE 2/3: ANÁLISIS CON IA - Job ID: {job_id}")
             
-            progress_callback = lambda status, progress, message: self.send_progress_update(
-                job_id, status, 0.33 + (progress * 0.33), message
-            )
-            
-            clips = await self.analyzer.analyze_transcription(
+            # Generar clave de caché
+            cache_key = self._generate_analysis_cache_key(
+                job["video_path"],
+                transcription,
                 job["context"],
                 job["topics"],
-                job["profile"],
-                transcription,
-                progress_callback
+                job["profile"]
             )
+            
+            # Intentar cargar desde caché
+            clips = await self._load_analysis_cache(cache_key)
+            
+            if clips:
+                await self.send_progress_update(job_id, "analyzing", 0.66, f"Análisis cargado desde caché ({len(clips)} clips)")
+                logger.info(f"📋 CACHÉ UTILIZADO - {len(clips)} clips cargados desde caché")
+            else:
+                # No hay caché, ejecutar análisis
+                await self.send_progress_update(job_id, "analyzing", 0.35, "Ejecutando análisis con IA...")
+                
+                progress_callback = lambda status, progress, message: self.send_progress_update(
+                    job_id, status, 0.35 + (progress * 0.31), message
+                )
+                
+                clips = await self.analyzer.analyze_transcription(
+                    job["context"],
+                    job["topics"],
+                    job["profile"],
+                    transcription,
+                    progress_callback
+                )
+                
+                # Guardar en caché
+                if clips:
+                    await self._save_analysis_cache(
+                        cache_key,
+                        clips,
+                        job_id,
+                        job["video_path"],
+                        job["context"],
+                        job["topics"],
+                        job["profile"]
+                    )
+                    
+                    # Limpiar caché antiguo
+                    self._cleanup_old_cache()
             
             if not clips:
                 raise Exception("No se identificaron clips relevantes en el video")
@@ -343,6 +378,115 @@ class JobManager:
             
         except Exception as e:
             logger.error(f"Error guardando transcripción: {e}")
+    
+    def _generate_analysis_cache_key(self, video_path: str, transcription: str, context: str, topics: str, profile: str) -> str:
+        """
+        Genera una clave única para el caché de análisis basada en el contenido
+        """
+        # Obtener hash del archivo de video
+        video_hash = self._get_file_hash(video_path)
+        
+        # Crear string con todos los parámetros que afectan el análisis
+        analysis_params = f"{video_hash}|{context}|{topics}|{profile}|{len(transcription)}"
+        
+        # Generar hash MD5 de los parámetros
+        cache_key = hashlib.md5(analysis_params.encode('utf-8')).hexdigest()
+        
+        return cache_key
+    
+    def _get_file_hash(self, file_path: str) -> str:
+        """
+        Obtiene el hash MD5 de un archivo
+        """
+        try:
+            hash_md5 = hashlib.md5()
+            with open(file_path, "rb") as f:
+                # Leer el archivo en chunks para archivos grandes
+                for chunk in iter(lambda: f.read(4096), b""):
+                    hash_md5.update(chunk)
+            return hash_md5.hexdigest()
+        except Exception as e:
+            logger.error(f"Error calculando hash del archivo: {e}")
+            # Fallback: usar timestamp de modificación
+            return str(os.path.getmtime(file_path))
+    
+    async def _save_analysis_cache(self, cache_key: str, clips: List[Dict], job_id: str, video_path: str, context: str, topics: str, profile: str):
+        """
+        Guarda el resultado del análisis en caché
+        """
+        try:
+            # Crear directorio de caché
+            cache_dir = Path("output") / "analysis_cache"
+            cache_dir.mkdir(exist_ok=True)
+            
+            # Datos del caché
+            cache_data = {
+                "cache_key": cache_key,
+                "job_id": job_id,
+                "timestamp": datetime.now().isoformat(),
+                "video_path": video_path,
+                "analysis_params": {
+                    "context": context,
+                    "topics": topics,
+                    "profile": profile
+                },
+                "clips_count": len(clips),
+                "clips": clips
+            }
+            
+            # Guardar caché
+            cache_file = cache_dir / f"{cache_key}_analysis.json"
+            with open(cache_file, 'w', encoding='utf-8') as f:
+                json.dump(cache_data, f, ensure_ascii=False, indent=2)
+            
+            logger.info(f"Análisis guardado en caché: {cache_file} ({len(clips)} clips)")
+            
+        except Exception as e:
+            logger.error(f"Error guardando análisis en caché: {e}")
+    
+    async def _load_analysis_cache(self, cache_key: str) -> Optional[List[Dict]]:
+        """
+        Carga el resultado del análisis desde caché
+        """
+        try:
+            cache_dir = Path("output") / "analysis_cache"
+            cache_file = cache_dir / f"{cache_key}_analysis.json"
+            
+            if not cache_file.exists():
+                return None
+            
+            with open(cache_file, 'r', encoding='utf-8') as f:
+                cache_data = json.load(f)
+            
+            clips = cache_data.get("clips", [])
+            timestamp = cache_data.get("timestamp", "")
+            
+            logger.info(f"Análisis cargado desde caché: {len(clips)} clips (creado: {timestamp})")
+            
+            return clips
+            
+        except Exception as e:
+            logger.error(f"Error cargando análisis desde caché: {e}")
+            return None
+    
+    def _cleanup_old_cache(self, max_age_days: int = 30):
+        """
+        Limpia archivos de caché antiguos
+        """
+        try:
+            cache_dir = Path("output") / "analysis_cache"
+            if not cache_dir.exists():
+                return
+            
+            cutoff_time = datetime.now().timestamp() - (max_age_days * 24 * 60 * 60)
+            
+            for cache_file in cache_dir.glob("*_analysis.json"):
+                if cache_file.stat().st_mtime < cutoff_time:
+                    cache_file.unlink()
+                    logger.info(f"Archivo de caché eliminado: {cache_file}")
+                    
+        except Exception as e:
+            logger.error(f"Error limpiando caché: {e}")
     
     async def _get_video_info(self, video_path: str) -> Dict:
         """
