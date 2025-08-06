@@ -583,6 +583,23 @@ body::before {
     font-size: 1.1rem;
 }
 
+.add-subtitles-btn {
+    background: linear-gradient(135deg, #7c3aed 0%, #8b5cf6 50%, #a78bfa 100%) !important;
+    border-color: #7c3aed !important;
+}
+
+.add-subtitles-btn:hover {
+    background: linear-gradient(135deg, #6d28d9 0%, #7c3aed 50%, #8b5cf6 100%) !important;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(124, 58, 237, 0.4);
+}
+
+.add-subtitles-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none !important;
+}
+
 /* Acciones de resultados */
 .results-actions {
     display: flex;
@@ -728,8 +745,16 @@ body::before {
 }
 
 .btn-warning {
-    background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 25%, #2563eb 50%, #3b82f6 100%);
-    color: white;
+    background: linear-gradient(135deg, #ffc107 0%, #e0a800 25%, #d39e00 50%, #b8860b 100%);
+    color: #212529;
+    border: none;
+    font-weight: 600;
+}
+
+.btn-warning:hover {
+    background: linear-gradient(135deg, #e0a800 0%, #d39e00 25%, #b8860b 50%, #9a7209 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(255, 193, 7, 0.3);
 }
 
 .btn-success {

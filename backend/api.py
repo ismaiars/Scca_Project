@@ -729,3 +729,99 @@ async def _generate_clips_background(job_id: str, cache_data: dict, video_path: 
         
     except Exception as e:
         logger.error(f"Error en generación background para job {job_id}: {str(e)}")
+
+@router.post("/api/add_subtitles/{filename}")
+async def add_subtitles_to_clip(filename: str, background_tasks: BackgroundTasks):
+    """
+    Añade subtítulos a un clip específico
+    """
+    try:
+        # Buscar el clip en el directorio de salida
+        output_dir = Path("output")
+        clip_path = None
+        
+        # Buscar el archivo en todos los subdirectorios
+        for file_path in output_dir.rglob(filename):
+            if file_path.is_file():
+                clip_path = file_path
+                break
+        
+        if not clip_path or not clip_path.exists():
+            raise HTTPException(status_code=404, detail="Clip no encontrado")
+        
+        # Buscar el video original asociado (necesario para extraer audio)
+        # Por ahora, buscaremos en el directorio de videos
+        videos_dir = output_dir / "videos"
+        video_files = list(videos_dir.glob("*.mp4"))
+        
+        if not video_files:
+            raise HTTPException(status_code=404, detail="Video original no encontrado")
+        
+        # Usar el video más reciente (esto se puede mejorar)
+        video_path = max(video_files, key=lambda x: x.stat().st_mtime)
+        
+        # Cargar metadatos del clip
+        cutter = VideoCutter()
+        metadata = cutter._load_clip_metadata(str(clip_path))
+        
+        if metadata and "clip_info" in metadata:
+            clip_info = metadata["clip_info"]
+            start_time = clip_info.get("start_time", 0.0)
+            end_time = clip_info.get("end_time", 30.0)
+            original_video = metadata.get("original_video_path", str(video_path))
+            
+            # Verificar si el video original existe
+            if os.path.exists(original_video):
+                video_path = Path(original_video)
+        else:
+            logger.warning(f"No se encontraron metadatos para el clip: {filename}")
+            start_time = 0.0
+            end_time = 30.0
+        
+        # Crear job ID para el proceso de subtítulos
+        job_id = str(uuid.uuid4())
+        
+        # Iniciar proceso en background
+        background_tasks.add_task(
+            _add_subtitles_background,
+            job_id,
+            str(clip_path),
+            str(video_path),
+            start_time,
+            end_time,
+            filename
+        )
+        
+        return {
+            "success": True,
+            "message": "Proceso de subtítulos iniciado",
+            "job_id": job_id,
+            "filename": filename
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error iniciando proceso de subtítulos: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error interno: {str(e)}")
+
+async def _add_subtitles_background(job_id: str, clip_path: str, video_path: str, 
+                                   start_time: float, end_time: float, original_filename: str):
+    """
+    Proceso en background para añadir subtítulos
+    """
+    try:
+        logger.info(f"Iniciando proceso de subtítulos para job {job_id}")
+        
+        # Crear instancia del cutter
+        cutter = VideoCutter()
+        
+        # Añadir subtítulos
+        subtitled_path = await cutter.add_subtitles_to_clip(
+            clip_path, video_path, start_time, end_time
+        )
+        
+        logger.info(f"Subtítulos añadidos exitosamente: {subtitled_path}")
+        
+    except Exception as e:
+        logger.error(f"Error en proceso de subtítulos para job {job_id}: {str(e)}")

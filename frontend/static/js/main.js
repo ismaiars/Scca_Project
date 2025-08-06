@@ -54,6 +54,14 @@ class SCCAApp {
         } else {
             console.error('Whisper settings button not found!');
         }
+
+        // Botón de clips existentes
+        const showClipsBtn = document.getElementById('show-clips-btn');
+        if (showClipsBtn) {
+            showClipsBtn.addEventListener('click', () => {
+                this.showExistingClips();
+            });
+        }
     }
     
     async handleFormSubmit(event) {
@@ -409,8 +417,18 @@ class SCCAApp {
                    download="${fileName}">
                     <i class="fas fa-download"></i> Descargar
                 </a>
+                <button class="btn-secondary add-subtitles-btn" 
+                        data-filename="${fileName}">
+                    <i class="fas fa-closed-captioning"></i> Añadir Subtítulos
+                </button>
             </div>
         `;
+        
+        // Añadir event listener para el botón de subtítulos
+        const subtitlesBtn = clipDiv.querySelector('.add-subtitles-btn');
+        subtitlesBtn.addEventListener('click', () => {
+            this.addSubtitlesToClip(fileName);
+        });
         
         return clipDiv;
     }
@@ -1103,6 +1121,79 @@ class SCCAApp {
         }
     }
     
+    async addSubtitlesToClip(filename) {
+        try {
+            // Mostrar notificación de inicio
+            this.showNotification('Iniciando proceso de subtítulos...', 'info');
+            
+            // Deshabilitar el botón mientras se procesa
+            const button = document.querySelector(`[data-filename="${filename}"]`);
+            if (button) {
+                button.disabled = true;
+                button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Procesando...';
+            }
+            
+            const response = await fetch(`/api/add_subtitles/${filename}`, {
+                method: 'POST'
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                this.showNotification('Subtítulos añadidos exitosamente. El archivo con subtítulos estará disponible en breve.', 'success');
+                
+                // Recargar la lista de clips después de un momento
+                setTimeout(() => {
+                    window.location.reload();
+                }, 3000);
+            } else {
+                this.showNotification(`Error: ${result.message || 'Error desconocido'}`, 'error');
+            }
+            
+        } catch (error) {
+            console.error('Error añadiendo subtítulos:', error);
+            this.showNotification('Error añadiendo subtítulos al clip', 'error');
+        } finally {
+            // Rehabilitar el botón
+            const button = document.querySelector(`[data-filename="${filename}"]`);
+            if (button) {
+                button.disabled = false;
+                button.innerHTML = '<i class="fas fa-closed-captioning"></i> Añadir Subtítulos';
+            }
+        }
+    }
+
+    async showExistingClips() {
+        try {
+            this.showNotification('Cargando clips existentes...', 'info');
+            
+            const response = await fetch('/api/output/files');
+            const data = await response.json();
+            
+            if (response.ok && data.files && data.files.length > 0) {
+                // Usar la información completa que ahora devuelve el backend
+                const clips = data.files.map((file, index) => ({
+                    title: file.title || file.name.replace('.mp4', ''),
+                    start_time: file.start_time || 0,
+                    end_time: file.end_time || 0,
+                    duration: file.duration || 0,
+                    description: file.description || 'Clip existente',
+                    file_path: file.name, // Solo el nombre del archivo
+                    file_size: file.size
+                }));
+                
+                // Mostrar los clips usando el método existente
+                this.showResults(clips);
+                this.showNotification(`${clips.length} clips encontrados`, 'success');
+            } else {
+                this.showNotification('No se encontraron clips existentes', 'warning');
+            }
+            
+        } catch (error) {
+            console.error('Error cargando clips:', error);
+            this.showNotification('Error cargando clips existentes', 'error');
+        }
+    }
 
 }
 
